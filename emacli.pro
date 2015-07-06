@@ -1,18 +1,18 @@
-QT += core
-QT += network
-QT -= gui
+QT += core gui network widgets
 
-CONFIG += c++14
+CONFIG += c++11
+CONFIG += console
 
 TARGET = emacli
-CONFIG   += console
-CONFIG   -= app_bundle
-
 TEMPLATE = app
 
-
 SOURCES += main.cpp \
-    email/protocol_adapters/pop3/pop3adapter.cpp
+    email/protocol_adapters/pop3/pop3adapter.cpp \
+    ui/start_screen/startscreen.cpp
 
 HEADERS += \
-    email/protocol_adapters/pop3/pop3adapter.h
+    email/protocol_adapters/pop3/pop3adapter.h \
+    ui/start_screen/startscreen.h
+
+FORMS += \
+    ui/start_screen/startscreen.ui
