@@ -1,6 +1,6 @@
-QT       += core
-
-QT       -= gui
+QT += core
+QT += network
+QT -= gui
 
 CONFIG += c++14
 
@@ -11,4 +11,8 @@ CONFIG   -= app_bundle
 TEMPLATE = app
 
 
-SOURCES += main.cpp
+SOURCES += main.cpp \
+    email/protocol_adapters/pop3/pop3adapter.cpp
+
+HEADERS += \
+    email/protocol_adapters/pop3/pop3adapter.h
