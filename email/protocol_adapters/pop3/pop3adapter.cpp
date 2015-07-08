@@ -11,7 +11,22 @@ Pop3Adapter::~Pop3Adapter()
     socket->close();
 }
 
-// TODO: replace throw QString with custom exceptions
+void Pop3Adapter::waitForSocketReadyRead(QString command)
+{
+    if (!socket->waitForReadyRead(secondsToWait * 1000))
+    {
+        throw ServerNotRespondingException ("Host not responding after "+command+" command.");
+    }
+}
+
+void Pop3Adapter::checkAuthentication()
+{
+        if (authenticated==false)
+        {
+            throw UnathenticatedException ("User not authenticated.");
+        }
+}
+
 void Pop3Adapter::login (QString host, QString port, QString user, QString password)
 {
     // Connect to socket
@@ -19,13 +34,10 @@ void Pop3Adapter::login (QString host, QString port, QString user, QString passw
     // Alternative: use stateChanged() signal
     if (!socket->waitForConnected(secondsToWait * 1000)) //5s should be enough to determine if server is responding
     {
-        throw QString("Connection to host timed out");
+        throw ServerCannotBeReachedException("Connection to host timed out");
     }
 
-    if (!socket->waitForReadyRead(secondsToWait * 1000))
-    {
-        throw QString ("Host not responding");
-    }
+    waitForSocketReadyRead("connect");
 
     QString serverMessage;
     while (!serverMessage.contains("\n"))       // Messages sent will be CRLF terminated
@@ -40,10 +52,7 @@ void Pop3Adapter::login (QString host, QString port, QString user, QString passw
     // USER
     socket->write( QString("USER "+user+"\n").toStdString().c_str());
     socket->flush();
-    if (!socket->waitForReadyRead(secondsToWait*1000))
-    {
-        throw QString("Host not responding after sending USER command");
-    }
+    waitForSocketReadyRead("USER");
 
     serverMessage.clear();
     while (!serverMessage.contains("\n")) {serverMessage.append(socket->readAll());}
@@ -52,16 +61,12 @@ void Pop3Adapter::login (QString host, QString port, QString user, QString passw
 
     // PASS
     socket->write(QString("PASS "+password+"\n").toStdString().c_str());
-    socket->flush();
-    if (!socket->waitForReadyRead(secondsToWait*1000))
-    {
-        throw QString("Host not responding after sending PASS command");
-    }
+    waitForSocketReadyRead("PASS");
 
     serverMessage.clear();
     while (!serverMessage.contains("\n")) {serverMessage.append(socket->readAll());}
 
-    if (!serverMessage.startsWith("+OK")) {throw QString("Authentification data not recognized");}
+    if (!serverMessage.startsWith("+OK")) {throw AuthenticationFailedException();}
 
     authenticated = true;
 }
@@ -71,9 +76,23 @@ void Pop3Adapter::logout()
     if (!authenticated) return;
     socket->write("QUIT\n");
     socket->flush();
+    this->authenticated = false;
 }
 
-#include <iostream>
+unsigned int Pop3Adapter::getNumberOfEmails()
+{
+    checkAuthentication();
+    socket->write("STAT\n");
+    socket->flush();
+    waitForSocketReadyRead();
+
+    QString message;
+    while (!message.contains("\n")) {message.append(socket->readAll());}
+
+    if (!message.startsWith("+OK")) {throw QString ("Server sent -ERR after STAT");}
+    return message.split(" ")[1].toInt();
+}
+
 void Pop3Adapter::onConnectionStateChanged (QAbstractSocket::SocketState state)
 {
     if (state == QAbstractSocket::UnconnectedState) {authenticated = false;}
