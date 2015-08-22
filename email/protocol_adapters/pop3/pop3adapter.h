@@ -16,7 +16,7 @@ private:
     QSslSocket *socket = new QSslSocket();
 
     /**
-     * @brief secondsToWait States how much to wait before deciding server does not answer.
+     * @brief secondsToWait States how much to wait before deciding server timed out.
      */
     int secondsToWait = 5;
 
@@ -29,7 +29,7 @@ private:
      * @brief waitForSocketReadyRead Calls QsslSocket::waitForReadyRead and throws exception if it times out.
      * @param command POP3 command sent prior to wait.
      */
-    bool waitForSocketReadyRead (QString command);
+    bool waitForSocketReadyRead ();
 
 public:
     Pop3Adapter();
@@ -37,6 +37,7 @@ public:
 
     /**
      * @brief login Logs user in to pop3 service with given details.
+     * @return true on login success,false otherwise.
      */
     bool login (QString host, QString port, QString user, QString password);
 
@@ -49,6 +50,13 @@ public:
      * @brief getNumberOfEmails Uses the command STAT to get number of emails.
      */
     int getNumberOfEmails();
+
+    /**
+     * @brief getEmail retrieves email at given index.
+     * @param index position of email.
+     * @return email string, empty string if index invalid
+     */
+    QString getEmail (unsigned int index);
 
 private slots:
 

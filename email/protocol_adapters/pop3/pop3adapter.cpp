@@ -11,7 +11,7 @@ Pop3Adapter::~Pop3Adapter()
     socket->close();
 }
 
-bool Pop3Adapter::waitForSocketReadyRead(QString command)
+bool Pop3Adapter::waitForSocketReadyRead()
 {
     if (!socket->waitForReadyRead(secondsToWait * 1000))
     {
@@ -32,7 +32,7 @@ bool Pop3Adapter::login (QString host, QString port, QString user, QString passw
         return false;
     }
 
-    waitForSocketReadyRead("connect");
+    if (!waitForSocketReadyRead()) return false;
 
     QString serverMessage;
     while (!serverMessage.contains("\n")) // All POP3 messages are CRLF terminated
@@ -48,7 +48,7 @@ bool Pop3Adapter::login (QString host, QString port, QString user, QString passw
     // USER
     socket->write( QString("USER "+user+"\n").toStdString().c_str());
     socket->flush();
-    waitForSocketReadyRead("USER");
+    if (!waitForSocketReadyRead()) return false;
 
     serverMessage.clear();
     while (!serverMessage.contains("\n")) {serverMessage.append(socket->readAll());}
@@ -61,7 +61,7 @@ bool Pop3Adapter::login (QString host, QString port, QString user, QString passw
 
     // PASS
     socket->write(QString("PASS "+password+"\n").toStdString().c_str());
-    waitForSocketReadyRead("PASS");
+    if (!waitForSocketReadyRead()) return false;
 
     serverMessage.clear();
     while (!serverMessage.contains("\n")) {serverMessage.append(socket->readAll());}
@@ -87,12 +87,12 @@ int Pop3Adapter::getNumberOfEmails()
 {
     if (!authenticated)
     {
-        // TODO: emit not logged in signal
+        // TODO: emit unauthenticated signal
         return -1;
     }
     socket->write("STAT\n");
     socket->flush();
-    waitForSocketReadyRead("STAT");
+    if (!waitForSocketReadyRead()) return -1;
 
     QString message;
     while (!message.contains("\n")) {message.append(socket->readAll());}
@@ -103,6 +103,57 @@ int Pop3Adapter::getNumberOfEmails()
         return -1;
     }
     return message.split(" ")[1].toInt();
+}
+
+
+QString Pop3Adapter::getEmail (unsigned int index)
+{
+    if (!authenticated)
+    {
+        // TODO: emit unauthenticated signal
+        return "";
+    }
+    int emailNo = getNumberOfEmails();
+    if (emailNo <= 0 || index > emailNo) return "";
+
+    QString command = "RETR " + QString::number(index) + "\n";
+    socket->write(command.toStdString().c_str());
+    socket->flush();
+
+    if (!waitForSocketReadyRead())
+    {
+        // TODO: emit server not responding signal
+        return "";
+    }
+
+    // Get byte by byte until we get size of mail
+    QString message;
+    char *byt = new char[2];
+    while (!message.contains("\n"))
+    {
+        socket->read(byt,1);
+        byt[1] = 0;
+        message.append(byt);
+    }
+    delete[] byt;
+
+    if (!message.startsWith("+OK"))
+    {
+        // TODO: emit retrieve email failed signal
+        return "";
+    }
+
+    // Get message octets
+    int messageSize = message.split(" ")[1].toInt();
+    // And read remaining message
+    message.clear();
+    while (messageSize >= message.size())
+    {
+        waitForSocketReadyRead();
+        message.append(socket->readAll());
+    }
+
+    return message;
 }
 
 void Pop3Adapter::onConnectionStateChanged (QAbstractSocket::SocketState state)
