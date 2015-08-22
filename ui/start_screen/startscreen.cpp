@@ -1,9 +1,10 @@
 #include "startscreen.h"
 #include "ui_startscreen.h"
 
-#include "email/protocol_adapters/pop3/pop3adapter.h"
+#include "../../email/protocol_adapters/pop3/pop3adapter.h"
 
 #include <iostream>
+
 StartScreen::StartScreen(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::StartScreen)

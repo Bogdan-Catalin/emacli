@@ -4,12 +4,8 @@
 #include <QObject>
 #include <QSslSocket>
 
-// Exceptions this class may throw
-#include "../exceptions/servernotrespondingexception.h"
-#include "../exceptions/servercannotbereachedexception.h"
-#include "../exceptions/authenticationfailedexception.h"
-#include "../exceptions/unathenticatedexception.h"
 
+// TODO: idea - POP3 is presented as a state machine, so the implementation could be one too
 /**
  * @brief The Pop3Adapter class provides an API over the POP3 protocol.
  */
@@ -33,12 +29,7 @@ private:
      * @brief waitForSocketReadyRead Calls QsslSocket::waitForReadyRead and throws exception if it times out.
      * @param command POP3 command sent prior to wait.
      */
-    void waitForSocketReadyRead (QString command);
-
-    /**
-     * @brief checkAuthentication Checks if user is authentified and throws exception if not.
-     */
-    void checkAuthentication ();
+    bool waitForSocketReadyRead (QString command);
 
 public:
     Pop3Adapter();
@@ -47,7 +38,7 @@ public:
     /**
      * @brief login Logs user in to pop3 service with given details.
      */
-    void login (QString host, QString port, QString user, QString password);
+    bool login (QString host, QString port, QString user, QString password);
 
     /**
      * @brief logout Logs user out.
@@ -57,7 +48,7 @@ public:
     /**
      * @brief getNumberOfEmails Uses the command STAT to get number of emails.
      */
-    unsigned int getNumberOfEmails();
+    int getNumberOfEmails();
 
 private slots:
 

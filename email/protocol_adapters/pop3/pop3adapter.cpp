@@ -11,41 +11,37 @@ Pop3Adapter::~Pop3Adapter()
     socket->close();
 }
 
-void Pop3Adapter::waitForSocketReadyRead(QString command)
+bool Pop3Adapter::waitForSocketReadyRead(QString command)
 {
     if (!socket->waitForReadyRead(secondsToWait * 1000))
     {
-        throw ServerNotRespondingException ("Host not responding after "+command+" command.");
+        // TODO: emit server not responding signal
+        return false;
     }
+    return true;
 }
 
-void Pop3Adapter::checkAuthentication()
-{
-        if (authenticated==false)
-        {
-            throw UnathenticatedException ("User not authenticated.");
-        }
-}
-
-void Pop3Adapter::login (QString host, QString port, QString user, QString password)
+bool Pop3Adapter::login (QString host, QString port, QString user, QString password)
 {
     // Connect to socket
     socket->connectToHostEncrypted(host,port.toInt());
     // Alternative: use stateChanged() signal
     if (!socket->waitForConnected(secondsToWait * 1000)) //5s should be enough to determine if server is responding
     {
-        throw ServerCannotBeReachedException("Connection to host timed out");
+        // TODO: emit server cannot be reached signal
+        return false;
     }
 
     waitForSocketReadyRead("connect");
 
     QString serverMessage;
-    while (!serverMessage.contains("\n"))       // Messages sent will be CRLF terminated
+    while (!serverMessage.contains("\n")) // All POP3 messages are CRLF terminated
     {serverMessage.append(socket->readAll());}
 
-    if (!serverMessage.startsWith("+OK")) // rarely ever will the server greet with -ERR... it should have a good reason to
+    if (!serverMessage.startsWith("+OK")) // rarely ever will the server greet with -ERR. It is not even specified in RFC 1939
     {
-        throw QString ("Server " + host + " does not like you.");
+        // TODO: emit server refused connection signal
+        return false;
     }
 
     // Send auth data
@@ -57,7 +53,11 @@ void Pop3Adapter::login (QString host, QString port, QString user, QString passw
     serverMessage.clear();
     while (!serverMessage.contains("\n")) {serverMessage.append(socket->readAll());}
 
-    if (!serverMessage.startsWith("+OK")) {throw QString("Authentification data not recognized");}
+    if (!serverMessage.startsWith("+OK"))
+    {
+        // TODO: emit invalid authentication data signal
+        return false;
+    }
 
     // PASS
     socket->write(QString("PASS "+password+"\n").toStdString().c_str());
@@ -66,7 +66,11 @@ void Pop3Adapter::login (QString host, QString port, QString user, QString passw
     serverMessage.clear();
     while (!serverMessage.contains("\n")) {serverMessage.append(socket->readAll());}
 
-    if (!serverMessage.startsWith("+OK")) {throw AuthenticationFailedException();}
+    if (!serverMessage.startsWith("+OK"))
+    {
+        // TODO: emit invalid authentication data signal
+        return false;
+    }
 
     authenticated = true;
 }
@@ -79,17 +83,25 @@ void Pop3Adapter::logout()
     this->authenticated = false;
 }
 
-unsigned int Pop3Adapter::getNumberOfEmails()
+int Pop3Adapter::getNumberOfEmails()
 {
-    checkAuthentication();
+    if (!authenticated)
+    {
+        // TODO: emit not logged in signal
+        return -1;
+    }
     socket->write("STAT\n");
     socket->flush();
-    waitForSocketReadyRead();
+    waitForSocketReadyRead("STAT");
 
     QString message;
     while (!message.contains("\n")) {message.append(socket->readAll());}
 
-    if (!message.startsWith("+OK")) {throw QString ("Server sent -ERR after STAT");}
+    if (!message.startsWith("+OK"))
+    {
+        // TODO: emit STAT failed esignal
+        return -1;
+    }
     return message.split(" ")[1].toInt();
 }
 
